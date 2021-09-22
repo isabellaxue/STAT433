@@ -1,0 +1,67 @@
+---
+title: "HW_Week2"
+author: Isabella Xue
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(rvest)
+library(ggplot2)
+```
+
+## Github url
+
+*https://github.com/isabellaxue/STAT433.git*
+
+
+## Implementing data from webpage
+
+```{r}
+url_l <- "https://guide.wisc.edu/faculty/"
+website_html <- read_html(url_l)
+text_website <- website_html %>% 
+  html_elements(".uw-people") %>%
+  html_text2()
+
+final_df <- data.frame(matrix(ncol = 4, nrow = 0))
+col_n <- c("Name", "Position", "Department", "Degree")
+colnames(final_df) <- col_n
+
+for (row_t in text_website) {
+  row_split <- strsplit(row_t, "\n\n\n")
+  row_split <- row_split[[1]]
+  for(i in 1:length(row_split)){
+    if (str_count(row_split[i], "\n") < 3) {
+      next
+      }
+    person_r <- strsplit(row_split[i], "\n")
+    person_r <- person_r[[1]]
+    final_df[nrow(final_df) + 1, ] = person_r
+  }
+}
+
+head(final_df)
+```
+
+## Plotting
+
+```{r}
+new_df <- final_df %>%
+  group_by(Department) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count))
+new_df <- new_df[1:10,]
+ggplot(new_df, aes(x=reorder(Department, -Count), y=Count, fill = Department)) +
+  geom_bar(stat="identity") +
+  theme(axis.text.x = element_text(angle = 45), plot.title = element_text(hjust = 0.5), legend.position="none") +
+  ggtitle("Top 10 departments w/ most faculties") +
+  labs(x = "Department") +
+  scale_fill_brewer(palette = "Set3")
+```
+
+
+
