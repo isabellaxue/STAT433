@@ -1,0 +1,75 @@
+---
+title: "HW Week3"
+author: "Isabella Xue"
+output:
+  github_document:
+    df_print: paged
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(nycflights13)
+library(ggplot2)
+```
+
+### Github link
+
+`https://github.com/isabellaxue/STAT433.git`
+
+### How many flights have a missing dep_time? What other variables are missing? What might these rows represent?
+
+```{r}
+missing_dep_time <- flights %>%
+  filter(is.na(dep_time))
+missing_dep_time
+```
+
+*8255* flights have a missing dep_time. For these flights, `dep_delay`, `arr_time`, `arr_delay`, and `air_time` are also missing. Some are also missing `tailnum`. This might mean that these flight never departed. 
+
+### Currently dep_time and sched_dep_time are convenient to look at, but hard to compute with because they’re not really continuous numbers. Convert them to a more convenient representation of number of minutes since midnight.
+
+```{r}
+new_flights <- flights %>% 
+  mutate(dep_time_min = dep_time%%100+(dep_time-dep_time%%100)/100*60,
+         sched_dep_time_min = sched_dep_time%%100+(sched_dep_time-sched_dep_time %%100)/100*60) 
+
+new_flights %>% select(dep_time, dep_time_min, sched_dep_time, sched_dep_time_min)
+```
+
+The two new variables are `dep_time_min` and `sched_dep_time_min`.
+
+### Look at the number of canceled flights per day. Is there a pattern? Is the proportion of canceled flights related to the average delay? Use multiple dyplr operations, all on one line, concluding with ggplot(aes(x= ,y=)) + geom_point()
+
+```{r message=FALSE}
+missing_num <- 
+  flights %>%
+  mutate(canceled = ifelse((is.na(arr_delay)|is.na(dep_delay)), 1, 0)) %>%
+  group_by(year, month, day) %>%
+  summarise(missing_num = sum(canceled)) %>%
+  pull(missing_num)
+overall_num <- flights %>%
+  group_by(year, month, day) %>%
+  summarise(overall_flights = n()) %>%
+  pull(overall_flights)
+prop <- missing_num/overall_num
+
+average_delay <- flights %>%
+  group_by(year, month, day) %>%
+  summarise(aver_delay = mean(dep_delay, na.rm = TRUE)) %>%
+  pull(aver_delay)
+q3 <- cbind(data.frame(prop), data.frame(average_delay))
+
+ggplot(q3, aes(y=prop ,x=average_delay)) + 
+  geom_point() +
+  labs(y = "proportion of canceled flight", x="average delay")
+
+```
+
+From the plot, we can see that there is a small pattern and they are somehow related. As the average delay increases, proportion of canceled flight also increases. This  indicates that the whole airport is affected. 
+
+
