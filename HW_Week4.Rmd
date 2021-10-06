@@ -1,0 +1,180 @@
+---
+title: "HW Week4"
+author: "Isabella Xue"
+output:
+  github_document:
+    df_print: paged
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(nycflights13)
+library(ggplot2)
+library(cowplot)
+```
+
+## Github link
+
+`https://github.com/isabellaxue/STAT433.git`
+
+## Introduction
+
+I focus on **airport**, **wind speed**, **airline** to find the best ways to avoid delays. Here are the findings:
+
+1. Average delay time by hour vary slightly in different airport:
+(1) at **5, 7, 6** o'clock, flights are least likely to delay at EWR airport. 
+(2) at **7, 6, 9** o'clock, flights are least likely to delay at LGA airport.
+(3) at **7, 5, 8** o'clock, flights are least likely to delay at JFK airport.
+
+2. The combination of strong wind (high wind speed) + late hours is related to great increase in delay. It is highly recommended to fly early if you know it is going to be windy. 
+
+3. The four airlines *SkyWest Airlines, AirTran Airways, Mesa Airlines, Frontier Airlines* that have greater delay overall (by month) have some pattern when looking specifically by hour:
+(1) with AirTran Airways, passenger should avoid flying around **17, 18** o'clock 
+(2) with Frontier Airline, passenger should avoid flying around **17** o'clock 
+(3) with Mesa Airlines, passenger should avoid flying around **10** o'clock
+(4) with SkyWest Airlines, passenger should avoid flying around **16, 11** o'clock
+
+## Airport
+
+For visualization purpose, I first made 3 separate table containing the average delay from 3 airports by hour. 
+
+```{r}
+ewr_hour <- flights %>% 
+  filter(origin == "EWR") %>%
+  group_by(hour) %>%
+  summarise(arr_delay = mean(arr_delay, na.rm = TRUE)) %>%
+  mutate(hour = as.character(hour)) %>%
+  arrange(arr_delay)
+
+lga_hour <- flights %>% 
+  filter(origin == "LGA") %>%
+  group_by(hour) %>%
+  summarise(arr_delay = mean(arr_delay, na.rm = TRUE)) %>%
+  arrange(arr_delay)
+
+jfk_hour <- flights %>% 
+  filter(origin == "JFK") %>%
+  group_by(hour) %>%
+  summarise(arr_delay = mean(arr_delay, na.rm = TRUE)) %>%
+  arrange(arr_delay) 
+
+ewr_hour
+lga_hour
+jfk_hour
+```
+
+Then, I created bar graph showing average delay at each airport. 
+
+```{r}
+ewr_plot <- ggplot(ewr_hour, aes(x=reorder(hour, arr_delay), y=arr_delay)) +
+  geom_bar(stat="identity", fill="steelblue") +
+  labs(x = "Hour in a day", y = "Average delay in min",
+       title = "The average departure delay at EWR airport by hour") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_minimal()
+
+lga_plot <- ggplot(lga_hour, aes(x=reorder(hour, arr_delay), y=arr_delay)) +
+  geom_bar(stat="identity", fill="seagreen4") +
+  labs(x = "Hour in a day", y = "Average delay in min",
+       title = "The average departure delay at LGA airport by hour") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_minimal()
+
+jfk_plot <- ggplot(jfk_hour, aes(x=reorder(hour, arr_delay), y=arr_delay)) +
+  geom_bar(stat="identity", fill="sienna4") +
+  labs(x = "Hour in a day", y = "Average delay in min",
+       title = "The average departure delay at JFK airport by hour") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_minimal()
+
+plot_grid(ewr_plot, lga_plot, jfk_plot, nrow = 3, ncol =1)
+```
+
+It's very useful to look at each airport separately to avoid flight delay. After grouping by airport, I found the average departure delay by hour and sort them in ascending order to show in plots. It is shown in the plots that 
+
+(1) at **5, 7, 6** o'clock, flights are least likely to delay at EWR airport. 
+(2) at **7, 6, 9** o'clock, flights are least likely to delay at LGA airport.
+(3) at **7, 5, 8** o'clock, flights are least likely to delay at JFK airport.
+
+## Weather
+
+I chose to show whether wind speed has influence on the average delay by hour. I used left_join to combine flights and weather dataframe. I defined "strong wind" as the variable wind_speed bigger than 30 mph (based on information I got from internet). Then I created bar graph by studying average delay separately when strong wind is present or not. 
+
+```{r}
+flight_weather <- flights %>% 
+  group_by(year, month, day, hour) %>%
+  summarise(arr_delay = mean(arr_delay, na.rm = TRUE)) %>%
+  left_join(weather, by = c("year", "month", "day", "hour")) %>%
+  mutate(strong_wind = ifelse((wind_speed > 30), 1, 0)) %>%
+  group_by(hour, strong_wind) %>%
+  summarise(arr_delay = mean(arr_delay, na.rm = TRUE)) %>%
+  filter(!is.na(strong_wind), !is.na(arr_delay)) %>%
+  mutate(strong_wind = as.factor(strong_wind)) 
+
+flight_weather
+
+ggplot(flight_weather, aes(x=hour, y=arr_delay, fill = strong_wind)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  scale_fill_discrete(name = "Strong wind?", labels = c("No", "Yes")) +
+  labs(x = "Hour in a day", y = "Average delay in min") +
+  ggtitle(label = "The average departure delay by hour",
+              subtitle = "Strong wind is defined as bigger than 30 mph") +
+  theme(plot.title = element_text(hjust = 0.5, size = 13, face = "bold"), 
+        plot.subtitle = element_text(hjust = 0.5)) +
+  theme_minimal()
+```
+
+
+From the graph, we can see that strong wind does have a effect on the average delay time: the average delay is so much higher in the later hours when strong wind is present. There is one takeaway from this: strong wind + late hours are terrible! Fly early if you know it is going to be windy. 
+
+## Airline
+
+First, I want to know what airlines have the longest average delay monthly to get an big picture of each airline. 
+
+```{r}
+flights %>% 
+  left_join(airlines, by = "carrier") %>%
+  group_by(year, month, name) %>%
+  summarise(arr_delay = mean(arr_delay, na.rm = TRUE)) %>% 
+  mutate(month = as.factor(month)) %>%
+  arrange(desc(arr_delay)) %>%
+  ggplot(aes(x=month, y=arr_delay, color = name)) +
+  geom_point() +
+  labs(y= "average arrival delay", title = "Average delay every month by airline")
+```
+
+From the graph, we can see that **SkyWest Airlines, AirTran Airways, Mesa Airlines, Frontier Airlines** stand out as having greater average delay every month. Therefore, I want to see at what hours passenger should avoid to fly with these airlines. 
+
+```{r}
+airline_delay <- flights %>% 
+  left_join(airlines, by = "carrier") %>%
+  filter(name == c("Mesa Airlines Inc.", "SkyWest Airlines Inc.", "AirTran Airways Corporation", "Frontier Airlines Inc.")) %>%
+  group_by(hour, name) %>%
+  summarise(arr_delay = mean(arr_delay, na.rm = TRUE)) %>%
+  mutate(hour = as.factor(hour))
+
+airline_delay
+
+ggplot(airline_delay, aes(x=hour, y=arr_delay)) +
+  geom_point() +
+  labs(x = "Hour in a day", y = "Average delay in min",
+       title = "Average delay by hour by the top 4 'slowest' airlines") +
+  theme(plot.title = element_text(hjust = 0.5, size = 13, face = "bold"))+
+  theme_minimal() +
+  facet_wrap(~name)
+```
+
+The graphs above give an abstract idea that 
+
+(1) with AirTran Airways, passenger should avoid flying around **17, 18** o'clock 
+(2) with Frontier Airline, passenger should avoid flying around **17** o'clock 
+(3) with Mesa Airlines, passenger should avoid flying around **10** o'clock
+(4) with SkyWest Airlines, passenger should avoid flying around **16, 11** o'clock
+
+
+
