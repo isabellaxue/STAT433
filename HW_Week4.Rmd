@@ -1,12 +1,7 @@
 ---
 title: "HW Week4"
 author: "Isabella Xue"
-output:
-  github_document:
-    df_print: paged
-  html_document:
-    df_print: paged
-  pdf_document: default
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
